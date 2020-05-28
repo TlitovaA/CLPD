@@ -20,6 +20,7 @@ import pymorphy2
 from nltk.stem import WordNetLemmatizer
 import nltk
 import spacy
+import os
 
 nltk.download('wordnet')
 
@@ -63,7 +64,7 @@ def text_reader_tokenizer(filename, language):
     tokens_without_sw = [word for word in splitted_text if not word in stop_words] 
     words_in_sentences=[]
     for word in tokens_without_sw:
-        if (word!=""):
+        if (word!=''):
             words_in_sentences.append(word.lower())
     return words_in_sentences
 
@@ -109,14 +110,13 @@ def text_reader_bydots_with_preprocessing(filename, language):
                     sentarr=''
      #   print(sentences)
         return sentences
-
-      
+     
 
 #обучение модели Word2Vec
 def genmodel():
     embedding=embeddingspace()
-    model=Word2Vec(embedding, window=2, negative=10, size=3, sg=1, workers=5)
-    model.save("c:\\diplom\\word2vec.model") #относительные пути
+    model=Word2Vec(embedding, window=3, negative=10, size=3, sg=1, workers=5)
+    model.save('word2vec.model')
     return model
 
 
@@ -147,21 +147,32 @@ def english_lemmatizer(doc):
 #параметризовать модель (загрузка,обучение)
 if __name__ == "__main__":
 #    trained_mtm_model=genmodel()
-    trained_mtm_model = Word2Vec.load("c:\\diplom\\word2vec.model")
+    print(os.path)
+    trained_mtm_model = Word2Vec.load('word2vec.model')
+
+    '''
     print(trained_mtm_model.wv.similarity('sun','солнце'))
-    print(trained_mtm_model.wv.similarity('song','утро'))
-    print(trained_mtm_model.wv.most_similar('вера'))
-
-
+    print(trained_mtm_model.wv.similarity('song','песня'))
+    print(trained_mtm_model.wv.most_similar('слово'))
+    '''
     i=1
     while(i<2):
         part_of_plagiarism=0
         russentences_count=0
 
-        russian_doc_name="c:\\diplom\\rustext.txt"
-        english_doc_name="c:\\diplom\\engtext.txt"
+        russian_doc_name='docs/author X/rus'+str(i)+'.txt'
+     #   russian_doc_name='docs/source-document00007.txt'
+        if(i<10):
+            english_doc_name='docs/author X/en.rus'+str(i)+'.txt'
+     #       english_doc_name='docs/suspicious-document0000'+str(i)+'.txt'
+        else:
+            english_doc_name='docs/author X/en'+str(i)+'.txt'
+       #     english_doc_name='docs/suspicious-document000'+str(i)+'.txt'
 
-        
+    #    russian_doc_name='rustext.txt'
+    #    english_doc_name='engtext.txt'
+
+     
         russian_language='russian'
         english_language='english'
 
@@ -185,8 +196,8 @@ if __name__ == "__main__":
                 en=engsent.split()
                 try:
                     distance=trained_mtm_model.wv.n_similarity(ru, en)
-                    if (distance>0.98):
-                        print("["+str(count+1)+"]"+str(russent)+" "+str(engsent)+" "+str(distance))
+                    if (distance>0.99):
+                        print('['+str(count+1)+']'+str(russent)+' '+str(engsent)+' '+str(distance))
                         count=count+1
                         p=1
                         if (p==1):
@@ -195,14 +206,14 @@ if __name__ == "__main__":
                   #  print ('I got a KeyError - reason %s' % str(e))               
                   #  pass
                     s = str(e)
-                    pattern = "word '(.*?)' not in vocabulary"
+                    pattern = 'word '(.*?)' not in vocabulary'
                     substring = re.search(pattern, s).group(1)
                     try:
                         en.remove(substring)
                         list_of_stopw.append(substring)
                         try:
                             distance=trained_mtm_model.wv.n_similarity(ru, en)
-                            if (distance>0.98):
+                            if (distance>0.99):
                                 print("["+str(count+1)+"]"+str(russent)+" "+str(engsent)+" "+str(distance))
                                 count=count+1
                                 p=1
@@ -212,13 +223,14 @@ if __name__ == "__main__":
                             e=e
                         except ZeroDivisionError as zd:
                             e=e
+                            break
                         
                     except ValueError as e:
                         try:
                             ru.remove(substring)
                             try:
                                 distance=trained_mtm_model.wv.n_similarity(ru, en)
-                                if (distance>0.98):
+                                if (distance>0.99):
                                     print("["+str(count+1)+"]"+str(russent)+" "+str(engsent)+" "+str(distance))
                                     count=count+1
                                     p=1
@@ -230,12 +242,18 @@ if __name__ == "__main__":
                                 e=e
                         except ValueError as e:
                             e=e
+                            break
+                except ZeroDivisionError as zd:
+                    zd=zd
+                    break
+                except UnicodeEncodeError as uer:
+                    uer=uer
 
 
         part_of_plagiarism=count/russentences_count
-        if(part_of_plagiarism>0.2):
+        if(part_of_plagiarism>0.7):
             d=open('RESULT_'+str(i)+' + '+str(part_of_plagiarism)+'.txt','w',encoding='utf-8')
-            d.write("*************  PLAGIARISED  *************" +'\n'+'\n')
+            d.write('*************  PLAGIARISED  *************' +'\n'+'\n')
         else:
             d=open('RESULT_'+str(i)+'.txt', 'w', encoding='utf-8')
             
@@ -244,11 +262,10 @@ if __name__ == "__main__":
         d.write('*** '+english_doc_name+'\n')
         d.write('Sentences: '+str(engsentences_count)+'\n'+'\n')
 
-        d.write("Count of plagiarised sentences: "+str(count)+'\n')
-        d.write("Part Of Plagiarism: "+str(part_of_plagiarism)+'\n')
+        d.write('Count of plagiarised sentences: '+str(count)+'\n')
+        d.write('Part Of Plagiarism: '+str(part_of_plagiarism)+'\n')
         
    #     print(list_of_stopw)
         i=i+1
         d.close()
-
 
