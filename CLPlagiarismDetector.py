@@ -5,6 +5,7 @@
 # Чтобы повысить вероятность предсказания, повторить embedding space n-раз; n = 100
 
 #(3) Обучить вложения с помощью модели word2vec CBOW
+#window size (context) =5, negative sampling=5,minimum word count=50, attributes size =3
 #размер окна (контекст) = 5, отрицательная выборка = 5, минимальное количество слов = 50, размер атрибутов = 3
 
 from gensim.test.utils import common_texts
@@ -25,28 +26,39 @@ nltk.download('wordnet')
 morph=pymorphy2.MorphAnalyzer()
 nlp = spacy.load('en_core_web_sm')
 
+
 #создание embeddingspace
 def embeddingspace():
     embedding_space=[]
-    f1 = open('lemdic.txt', encoding='utf-8')
-    f2 = open('englemdic.txt', encoding='utf-8')
+    f1 = open('rusDictionary.txt', encoding='utf-8')
+    f2 = open('engDictionary.txt', encoding='utf-8')
+    f3 = open('engSynDictionary.txt', encoding='utf-8')    
     line1 = f1.readline()
     line2 = f2.readline()
-    while line1 and line2:
+    line3 = f3.readline()
+    while line1 and line2 and line3:
         line1 = f1.readline().lower().splitlines()
         line2 = f2.readline().lower().splitlines()
-        line3 = line1+line2
-        embedding_space.append(line3)
+        line3 = f3.readline().lower().splitlines()
+        line4 = line1+line2+line3
+        embedding_space.append(line4)
     f1.close()
     f2.close()
+    f3.close()
     return sum([embedding_space]*100,[])
+
+english_stopwords_extention=['always','ever','anyone','else','never','however', 'although','except',
+                             'though','nevertheless','th','st','nd','d','rd','could','unless',
+                             'mrs','mr','nor','appears','also','this','either','prospective',
+                             'almost','originally','several','since','usually','usual','various','ensure',
+                             'would','till','upon','exact','able','wherever','iii','obtain',
+                             'fulfil','\ufeffthe','perform','dun','enfant']
 
 
 #чтение документа и разбиение на токены
 def text_reader_tokenizer(filename, language):
     stop_words = set(stopwords.words(language)) 
     p=open(filename, encoding='utf-8')
-    #top_100k_words = corpora.Dictionary(simple_preprocess(line, deacc=True) for line in open('wiki-100.txt', encoding='utf-8'))
     splitted_text=re.split(r'[;,-?»«–\s]\s*', p.read())
     tokens_without_sw = [word for word in splitted_text if not word in stop_words] 
     words_in_sentences=[]
@@ -64,39 +76,38 @@ def text_reader_bydots_with_preprocessing(filename, language):
     doc = re.split(r'[.?!]\s*', line)
     sentences=[]
     sentarr=''
+    reg='\/|\;|\:|\,|\-|\"|\'|\(|\)|\=|\+|\–|\«|\»|\^|\%|\$|\@|\*|\~|\[|\]|\{|\}|\&|\<|\>|\>|\ˆ|\∈|\`|\_|\№|\#|[0-9]+|\|'
     if(language=='russian'):
         for sent in doc:
-            sent = re.sub('\/|\;|\:|\,|\-|\"|\'|\(|\)|\=|\+|\–|\«|\»|[0-9]+', '', sent)
-            if(len(sent)>10):
+            sent = re.sub(reg, '', sent)
+            if(len(sent)>15):
                 for word1 in sent.split():
                     w1=morph.parse(word1)[0].normal_form
                     if w1 not in get_stop_words(language) and len(w1)>2:
                         sentarr=sentarr+str(w1)+' '
                         w1=''
-                if(sentarr!=''):
-                    print(sentarr)
+                if(sentarr!='' and len(sentarr)>15):
                     sentences.append(sentarr)
                     sentarr=''
-        print(sentences)                
+    #    print(sentences)                
         return sentences
 
     if(language=='english'):
         stop_words = stopwords.words(language)
-        stop_words.extend(['anyone', 'else', 'never', 'however', 'although', 'though', 'nevertheless', 'th', 'st', 'nd', 'd', 'rd', 'mrs', 'mr'])
+        stop_words.extend(english_stopwords_extention)
         for sent in doc:
-            sent = re.sub('\/|\;|\:|\,|\-|\"|\'|\(|\)|\=|\+|\–|\«|\»|[0-9]+', '', sent)
-            if(len(sent)>10):
+            sent = re.sub(reg, '', sent)
+            if(len(sent)>15):
                 for word1 in sent.split():
                     w1=nlp(word1)
                     for token in w1:
-                        if (token.lemma_!='-PRON-' and not token.lemma_ in stop_words and len(token.lemma_)>2):
+                        if (not token.lemma_ in stop_words and token.lemma_!='-PRON-' and len(token.lemma_)>2):
                             sentarr=sentarr+str(token.lemma_)+' '
                             w1=''
-                if(sentarr!=''):
-                    print(sentarr)
+                if(sentarr!='' and len(sentarr)>15):
                     sentences.append(sentarr)
                     sentarr=''
-        print(sentences)
+     #   print(sentences)
         return sentences
 
       
@@ -104,8 +115,8 @@ def text_reader_bydots_with_preprocessing(filename, language):
 #обучение модели Word2Vec
 def genmodel():
     embedding=embeddingspace()
-    model=Word2Vec(embedding, window=5, min_count=50, size=300, sg=1, workers=3)
-    model.save("c:\\diplom\\word2vec.model")
+    model=Word2Vec(embedding, window=2, negative=10, size=3, sg=1, workers=5)
+    model.save("c:\\diplom\\word2vec.model") #относительные пути
     return model
 
 
@@ -122,7 +133,7 @@ def russian_lemmatizer(doc):
 #лемматизатор англоязычного документа
 def english_lemmatizer(doc):
     stop_words = stopwords.words('english')
-    stop_words.extend(['anyone', 'else'])
+    stop_words.extend(english_stopwords_extention)
     lemmatized_text=[]
     for word1 in doc:
         w1=nlp(word1)
@@ -133,41 +144,111 @@ def english_lemmatizer(doc):
     return tokens_without_sw
 
 
-
+#параметризовать модель (загрузка,обучение)
 if __name__ == "__main__":
 #    trained_mtm_model=genmodel()
     trained_mtm_model = Word2Vec.load("c:\\diplom\\word2vec.model")
-    
-    print(trained_mtm_model.wv.similarity("вера","absolutely"))
-    print(trained_mtm_model.wv.most_similar("absolutely"))
+    print(trained_mtm_model.wv.similarity('sun','солнце'))
+    print(trained_mtm_model.wv.similarity('song','утро'))
+    print(trained_mtm_model.wv.most_similar('вера'))
 
-    russian_doc_name="rusdoc.txt"
-    english_doc_name="source-document00001.txt"
-    russian_language='russian'
-    english_language='english'
 
-    rusdoc=text_reader_tokenizer(russian_doc_name,'russian')
-    engdoc=text_reader_tokenizer(english_doc_name,'english')
-    lemmatized_rusdoc=russian_lemmatizer(rusdoc)
-    lemmatized_engdoc=english_lemmatizer(engdoc)
+    i=1
+    while(i<2):
+        part_of_plagiarism=0
+        russentences_count=0
 
-  #  print(lemmatized_rusdoc)
-  #  print(lemmatized_engdoc)
+        russian_doc_name="c:\\diplom\\rustext.txt"
+        english_doc_name="c:\\diplom\\engtext.txt"
 
-    russentences = text_reader_bydots_with_preprocessing(russian_doc_name,russian_language)
-    engsentences = text_reader_bydots_with_preprocessing(english_doc_name,english_language)
+        
+        russian_language='russian'
+        english_language='english'
 
-    for russent in russentences:
-        ru=russent.split()
-        for engsent in engsentences:
-            en=engsent.split()
-            try:
-                distance=trained_mtm_model.wv.n_similarity(ru, en)
-                if (distance>0.70):
-                    print(str(russent)+" "+str(engsent)+" "+str(distance))
-            except KeyError as e:
-              #  print ('I got a KeyError - reason %s' % str(e))               
-                pass
+        rusdoc=text_reader_tokenizer(russian_doc_name,russian_language)
+        engdoc=text_reader_tokenizer(english_doc_name,english_language)
+        lemmatized_rusdoc=russian_lemmatizer(rusdoc)
+        lemmatized_engdoc=english_lemmatizer(engdoc)
 
+        russentences=text_reader_bydots_with_preprocessing(russian_doc_name,russian_language)
+        russentences_count=len(russentences)
+
+        engsentences=text_reader_bydots_with_preprocessing(english_doc_name,english_language)
+        engsentences_count=len(engsentences)
+
+        list_of_stopw=[]
+        count=0
+        for russent in russentences:
+            p=0
+            ru=russent.split()
+            for engsent in engsentences:
+                en=engsent.split()
+                try:
+                    distance=trained_mtm_model.wv.n_similarity(ru, en)
+                    if (distance>0.98):
+                        print("["+str(count+1)+"]"+str(russent)+" "+str(engsent)+" "+str(distance))
+                        count=count+1
+                        p=1
+                        if (p==1):
+                            break
+                except KeyError as e:
+                  #  print ('I got a KeyError - reason %s' % str(e))               
+                  #  pass
+                    s = str(e)
+                    pattern = "word '(.*?)' not in vocabulary"
+                    substring = re.search(pattern, s).group(1)
+                    try:
+                        en.remove(substring)
+                        list_of_stopw.append(substring)
+                        try:
+                            distance=trained_mtm_model.wv.n_similarity(ru, en)
+                            if (distance>0.98):
+                                print("["+str(count+1)+"]"+str(russent)+" "+str(engsent)+" "+str(distance))
+                                count=count+1
+                                p=1
+                                if (p==1):
+                                    break
+                        except KeyError as e:
+                            e=e
+                        except ZeroDivisionError as zd:
+                            e=e
+                        
+                    except ValueError as e:
+                        try:
+                            ru.remove(substring)
+                            try:
+                                distance=trained_mtm_model.wv.n_similarity(ru, en)
+                                if (distance>0.98):
+                                    print("["+str(count+1)+"]"+str(russent)+" "+str(engsent)+" "+str(distance))
+                                    count=count+1
+                                    p=1
+                                    if (p==1):
+                                        break
+                            except KeyError as e:
+                                e=e
+                            except ZeroDivisionError as zd:
+                                e=e
+                        except ValueError as e:
+                            e=e
+
+
+        part_of_plagiarism=count/russentences_count
+        if(part_of_plagiarism>0.2):
+            d=open('RESULT_'+str(i)+' + '+str(part_of_plagiarism)+'.txt','w',encoding='utf-8')
+            d.write("*************  PLAGIARISED  *************" +'\n'+'\n')
+        else:
+            d=open('RESULT_'+str(i)+'.txt', 'w', encoding='utf-8')
+            
+        d.write('*** '+russian_doc_name+'\n')
+        d.write('Sentences: '+str(russentences_count)+'\n'+'\n')
+        d.write('*** '+english_doc_name+'\n')
+        d.write('Sentences: '+str(engsentences_count)+'\n'+'\n')
+
+        d.write("Count of plagiarised sentences: "+str(count)+'\n')
+        d.write("Part Of Plagiarism: "+str(part_of_plagiarism)+'\n')
+        
+   #     print(list_of_stopw)
+        i=i+1
+        d.close()
 
 
