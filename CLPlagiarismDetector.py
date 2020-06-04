@@ -16,9 +16,9 @@ nlp = spacy.load('en_core_web_sm')
 #создание embeddingspace
 def embeddingspace():
     embedding_space = []
-    f1 = open('rusDictionary.txt', encoding = 'utf-8')
-    f2 = open('engDictionary.txt', encoding = 'utf-8')
-    f3 = open('engSynDictionary.txt', encoding = 'utf-8')    
+    f1 = open('dictionaries/rusDictionary.txt', encoding = 'utf-8')
+    f2 = open('dictionaries/engDictionary.txt', encoding = 'utf-8')
+    f3 = open('dictionaries/engSynDictionary.txt', encoding = 'utf-8')    
     line1 = f1.readline()
     line2 = f2.readline()
     line3 = f3.readline()
